@@ -1,10 +1,9 @@
 package utils
 
 import (
-	"bytes"
+	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -70,25 +69,6 @@ func FileWalk(root string, targetFiles map[string]struct{}, walkFn func(r io.Rea
 	return nil
 }
 
-func IsCommandAvailable(name string) bool {
-	cmd := exec.Command(name, "--help")
-	if err := cmd.Run(); err != nil {
-		return false
-	}
-	return true
-}
-
-func Exists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
-}
-
 func StringInSlice(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -96,18 +76,6 @@ func StringInSlice(a string, list []string) bool {
 		}
 	}
 	return false
-}
-
-func Exec(command string, args []string) (string, error) {
-	cmd := exec.Command(command, args...)
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-	if err := cmd.Run(); err != nil {
-		log.Logger.Debug(stderrBuf.String())
-		return "", xerrors.Errorf("failed to exec: %w", err)
-	}
-	return stdoutBuf.String(), nil
 }
 
 func FilterTargets(prefixPath string, targets map[string]struct{}) (map[string]struct{}, error) {
@@ -118,11 +86,36 @@ func FilterTargets(prefixPath string, targets map[string]struct{}) (map[string]s
 			if err != nil {
 				return nil, xerrors.Errorf("error in filepath rel: %w", err)
 			}
-			if strings.HasPrefix(rel, "../") {
+			if strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 				continue
 			}
 			filtered[rel] = struct{}{}
 		}
 	}
 	return filtered, nil
+}
+
+func CopyFile(src, dst string) (int64, error) {
+	sourceFileStat, err := os.Stat(src)
+	if err != nil {
+		return 0, err
+	}
+
+	if !sourceFileStat.Mode().IsRegular() {
+		return 0, fmt.Errorf("%s is not a regular file", src)
+	}
+
+	source, err := os.Open(src)
+	if err != nil {
+		return 0, err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return 0, err
+	}
+	defer destination.Close()
+	n, err := io.Copy(destination, source)
+	return n, err
 }

@@ -4,7 +4,8 @@ import (
 	l "log"
 	"os"
 
-	"github.com/aquasecurity/trivy/pkg"
+	"github.com/aquasecurity/trivy/internal"
+
 	"github.com/aquasecurity/trivy/pkg/log"
 )
 
@@ -13,7 +14,7 @@ var (
 )
 
 func main() {
-	app := pkg.NewApp(version)
+	app := internal.NewApp(version)
 	err := app.Run(os.Args)
 	if err != nil {
 		if log.Logger != nil {
